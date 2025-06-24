@@ -1,28 +1,31 @@
 {
-  description = "A very basic flake";
+  description = "Rust CLI tool using nixpkgs rust";
 
   inputs = {
-    nixpkgs.url = "github:nixos/nixpkgs?ref=nixos-unstable";
-
+    nixpkgs.url = "github:NixOS/nixpkgs";
     flake-utils.url = "github:numtide/flake-utils";
   };
 
-  outputs = {
-    self,
-    nixpkgs,
-    flake-utils,
-    ...
-  } @ inputs:
-    flake-utils.lib.eachDefaultSystem (system: let
-      pkgs = nixpkgs.legacyPackages.${system};
-    in {
-      formatter = pkgs.alejandra;
+  outputs = { self, nixpkgs, flake-utils, ... }:
+    flake-utils.lib.eachDefaultSystem (system:
+      let
+        pkgs = import nixpkgs {
+          inherit system;
+        };
 
-      devShells.default = import ./shell.nix {inherit pkgs;};
+        rust_finder = pkgs.rustPlatform.buildRustPackage {
+          pname = "guessNumber";
+          version = "0.1.0";
+          src = ./.;
+          cargoLock.lockFile = ./Cargo.lock;
+        };
+      in {
+        packages.default = rust_finder;
 
-      packages.default = import ./. {inherit pkgs;};
-    })
-    // {
-      darwinModules.default = import ./modules.nix self;
-    };
+        apps.default = flake-utils.lib.mkApp {
+          drv = rust_finder;
+        };
+
+        devShells.default = import ./shell.nix pkgs;
+      });
 }
